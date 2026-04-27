@@ -212,6 +212,7 @@
         mctx.scale(appState.dpr, appState.dpr);
         tctx.scale(appState.dpr, appState.dpr);
         updateBrushPreview();
+    }
     
     function toggleOverlay(id) {
     const el = document.getElementById(`overlay-${id}`);
@@ -231,14 +232,11 @@
         // Manual Cleanup: Ensure the tools grid shuts down with the menu
         if (id === 'menu') {
             document.getElementById('overlay-tools').style.display = 'none';
-            btn.innerText = 'MENU'; // Reset Name
-        }
+            btn.innerText = 'MENU'; 
+            btn.classList.remove('active');
+            appState.activeOverlay = null;
         
-        btn.classList.remove('active');
-        appState.activeOverlay = null;
-        // DELETED: lockDock/unlockDock calls to prevent automatic interference
     } else {
-        // 3. OPEN PATHWAY
         el.style.display = 'flex';
         btn.classList.add('active');
         appState.activeOverlay = id;
