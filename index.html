@@ -212,28 +212,41 @@
         mctx.scale(appState.dpr, appState.dpr);
         tctx.scale(appState.dpr, appState.dpr);
         updateBrushPreview();
-    }
-
-    // KILL-SWITCH NAVIGATION
+    
     function toggleOverlay(id) {
-        if (appState.activeOverlay && appState.activeOverlay !== id) return;
+    const el = document.getElementById(`overlay-${id}`);
+    const btn = document.getElementById(`btn-${id}`);
+
+    // 1. TWO-BUTTON CHECK: Prevent "Crossed Wires"
+    // If we are trying to open MENU, check if COLOR or EDIT is already hot.
+    if (id === 'menu' && (appState.activeOverlay === 'color' || appState.isEditing)) return;
+    // If we are trying to open COLOR, check if MENU/TOOLS or EDIT is already hot.
+    if (id === 'color' && (appState.activeOverlay === 'menu' || appState.activeOverlay === 'tools' || appState.isEditing)) return;
+
+    // 2. KILL-SWITCH & STEP-BACK LOGIC
+    // This triggers if you tap the ALREADY active button (even if the name changed to "CUT")
+    if (appState.activeOverlay === id || (id === 'menu' && appState.activeOverlay === 'tools')) {
+        el.style.display = 'none';
         
-        const el = document.getElementById(`overlay-${id}`);
-        const btn = document.getElementById(`btn-${id}`);
-        
-        if (appState.activeOverlay === id) {
-            el.style.display = 'none';
-            btn.classList.remove('active');
-            appState.activeOverlay = null;
-            unlockDock();
-        } else {
-            el.style.display = 'flex';
-            btn.classList.add('active');
-            appState.activeOverlay = id;
-            lockDock(id);
+        // Manual Cleanup: Ensure the tools grid shuts down with the menu
+        if (id === 'menu') {
+            document.getElementById('overlay-tools').style.display = 'none';
+            btn.innerText = 'MENU'; // Reset Name
         }
+        
+        btn.classList.remove('active');
+        appState.activeOverlay = null;
+        // DELETED: lockDock/unlockDock calls to prevent automatic interference
+    } else {
+        // 3. OPEN PATHWAY
+        el.style.display = 'flex';
+        btn.classList.add('active');
+        appState.activeOverlay = id;
+    }
+}
     }
 
+    
     function switchOverlay(from, to) {
         document.getElementById(`overlay-${from}`).style.display = 'none';
         document.getElementById(`overlay-${to}`).style.display = 'flex';
