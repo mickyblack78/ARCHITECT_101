@@ -342,7 +342,9 @@ setupLoupe(document.getElementById('loupe2'), (val) => {
        bPrev.style.width = bPrev.style.height = `${appState.penSize}px`;
        cBtn.innerText = `${hCoord}.${sCoord}`;
        cBtn.style.color = cBtn.style.borderColor = appState.penColor;
-}
+       appState.penSize = Math.max(1, appState.penSize); 
+    }
+
     
     function unlockDock() {
         document.querySelectorAll('.btn').forEach(b => b.classList.remove('locked'));
