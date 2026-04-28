@@ -477,6 +477,21 @@ setupLoupe(document.getElementById('loupe2'), (val) => {
         document.getElementById('btn-edit').classList.toggle('active', appState.isEditing);
     }
 
+    let colorTapTime = 0;
+        document.getElementById('btn-color').addEventListener('click', () => {
+        const now = Date.now();
+        if (now - colorTapTime < 300) {
+        const hCoord = Math.round((appState.penHue / 360) * 4000);
+        const sCoord = Math.round(appState.penShade * 40);
+        const code = `${hCoord}.${sCoord}`;
+        
+        if (appState.ledger.length >= 50) appState.ledger.pop();
+        appState.ledger.unshift({ code: code, color: appState.penColor });
+        console.log("SAVED_TO_NOTEPAD: " + code);
+    }
+    colorTapTime = now;
+});
+
     window.addEventListener('load', init);
     window.addEventListener('resize', init);
 </script>
