@@ -436,36 +436,8 @@ setupLoupe(document.getElementById('loupe2'), (val) => {
             }
         }
     }
-
-    // COLOR LOGIC
-    const sSize = document.getElementById('size-slider');
-    const sShade = document.getElementById('shade-slider');
-    const sHue = document.getElementById('hue-slider');
-    const bPreview = document.getElementById('brush-preview');
-
-    function updateBrushPreview() {
-        appState.penSize = sSize.value;
-        appState.penHue = sHue.value;
-        appState.penShade = sShade.value;
-        const colorString = `hsl(${appState.penHue}, 100%, ${appState.penShade}%)`;
-        appState.penColor = colorString;
-
-        bPreview.style.width = `${appState.penSize}px`;
-        bPreview.style.height = `${appState.penSize}px`;
-        bPreview.style.backgroundColor = colorString;
+    
         
-        // Reactive Button
-        const cBtn = document.getElementById('btn-color');
-        cBtn.style.color = colorString;
-        cBtn.style.borderColor = colorString;
-        if (appState.activeOverlay === 'color') {
-            cBtn.style.boxShadow = `0 0 20px ${colorString}`;
-        }
-    }
-
-    [sSize, sShade, sHue].forEach(slider => {
-        slider.addEventListener('input', updateBrushPreview);
-    });
 
     function applyTool(name) {
         appState.activeTool = name;
