@@ -465,6 +465,50 @@ setupLoupe(document.getElementById('loupe2'), (val) => {
     }
     colorTapTime = now;
 });
+    function setupLoupe(el, callback) {
+    let isDragging = false;
+
+    // Only starts dragging if you touch the actual 15mm Loupe
+    el.addEventListener('touchstart', (e) => { 
+        isDragging = true; 
+        e.stopPropagation(); 
+    });
+
+    window.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        const rect = el.parentElement.getBoundingClientRect();
+        
+        // Calculate 0.0 to 1.0 position
+        let percent = Math.max(0, Math.min(1, (e.touches[0].clientX - rect.left) / rect.width));
+        
+        // Convert to 4000 steps and snap to current GEAR
+        let snappedVal = Math.max(1, Math.min(4000, Math.round((percent * 4000) / appState.gear) * appState.gear));
+        
+        // Move the handle visually
+        el.style.left = `${(snappedVal / 4000) * 100}%`;
+        el.innerText = snappedVal;
+        
+        // Send value back to the brush
+        callback(snappedVal);
+    }, { passive: false });
+
+    window.addEventListener('touchend', () => { 
+        isDragging = false; 
+    });
+}
+
+// NOW ACTIVATE THE BARS
+setupLoupe(document.getElementById('loupe1'), (val) => {
+    if (appState.bar1Mode === 'HUE') appState.penHue = (val/4000)*360; 
+    else appState.penShade = (val/4000)*100;
+    updateMasterColor();
+});
+
+setupLoupe(document.getElementById('loupe2'), (val) => {
+    if (appState.bar2Mode === 'ELECTRIC') appState.penElectric = (val/4000)*100; 
+    else appState.penSize = (val/4000)*100;
+    updateMasterColor();
+});
 
     window.addEventListener('load', init);
     window.addEventListener('resize', init);
