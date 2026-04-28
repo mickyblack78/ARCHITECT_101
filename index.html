@@ -287,6 +287,63 @@
         });
     }
 
+    function cycleGear() {
+    appState.gearIdx = (appState.gearIdx + 1) % appState.gears.length;
+    appState.gear = appState.gears[appState.gearIdx];
+    document.getElementById('gear-shifter').innerText = `GEAR: ${appState.gear}`;
+}
+
+document.getElementById('bar1-container').addEventListener('dblclick', () => {
+    appState.bar1Mode = appState.bar1Mode === 'HUE' ? 'TONE' : 'HUE';
+    document.getElementById('bar1-bg').style.background = appState.bar1Mode === 'HUE' 
+        ? 'linear-gradient(to right, red, yellow, green, cyan, blue, magenta, red)' 
+        : 'linear-gradient(to right, #000, #888, #fff)';
+    updateMasterColor();
+});
+
+document.getElementById('bar2-container').addEventListener('dblclick', () => {
+    appState.bar2Mode = appState.bar2Mode === 'ELECTRIC' ? 'STROKE' : 'ELECTRIC';
+    document.getElementById('bar2-bg').style.background = appState.bar2Mode === 'ELECTRIC'
+        ? 'linear-gradient(to right, #111, #0ff)' 
+        : 'linear-gradient(to right, rgba(255,255,255,0.1), rgba(255,255,255,1))';
+    updateMasterColor();
+});
+    
+    function setupLoupe(el, callback) {
+    let isDragging = false;
+    el.addEventListener('touchstart', (e) => { isDragging = true; e.stopPropagation(); });
+    window.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        const rect = el.parentElement.getBoundingClientRect();
+        let percent = Math.max(0, Math.min(1, (e.touches[0].clientX - rect.left) / rect.width));
+        let snappedVal = Math.max(1, Math.min(4000, Math.round((percent * 4000) / appState.gear) * appState.gear));
+        el.style.left = `${(snappedVal / 4000) * 100}%`;
+        el.innerText = snappedVal;
+        callback(snappedVal);
+    }, { passive: false });
+    window.addEventListener('touchend', () => isDragging = false);
+}
+
+setupLoupe(document.getElementById('loupe1'), (val) => {
+    if (appState.bar1Mode === 'HUE') appState.penHue = (val/4000)*360; else appState.penShade = (val/4000)*100;
+    updateMasterColor();
+});
+
+setupLoupe(document.getElementById('loupe2'), (val) => {
+    if (appState.bar2Mode === 'ELECTRIC') appState.penElectric = (val/4000)*100; else appState.penSize = (val/4000)*100;
+    updateMasterColor();
+});
+
+    function updateMasterColor() {
+       const hCoord = Math.round((appState.penHue / 360) * 4000), sCoord = Math.round(appState.penShade * 40);
+       appState.penColor = `hsl(${appState.penHue}, ${appState.penElectric || 100}%, ${appState.penShade}%)`;
+       const bPrev = document.getElementById('brush-preview'), cBtn = document.getElementById('btn-color');
+       bPrev.style.backgroundColor = appState.penColor;
+       bPrev.style.width = bPrev.style.height = `${appState.penSize}px`;
+       cBtn.innerText = `${hCoord}.${sCoord}`;
+       cBtn.style.color = cBtn.style.borderColor = appState.penColor;
+}
+    
     function unlockDock() {
         document.querySelectorAll('.btn').forEach(b => b.classList.remove('locked'));
     }
