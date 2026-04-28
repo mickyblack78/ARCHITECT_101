@@ -503,6 +503,28 @@ async function triggerQSave() {
         if (appState.ledger.length >= 50) appState.ledger.pop();
         appState.ledger.unshift({ code: code, color: appState.penColor });
         console.log("SAVED_TO_NOTEPAD: " + code);
+            // [2026-04-28 14:58] COLOR_FLASH_RECEIPT
+document.getElementById('btn-color').addEventListener('click', () => {
+    const now = Date.now();
+    if (now - colorTapTime < 300) {
+        const hCoord = Math.round((appState.penHue / 360) * 4000);
+        const sCoord = Math.round(appState.penShade * 40);
+        const code = `${hCoord}.${sCoord}`;
+        
+        appState.ledger.unshift({ code: code, color: appState.penColor });
+        if (appState.ledger.length > 50) appState.ledger.pop();
+
+        // The Flash
+        const btn = document.getElementById('btn-color');
+        btn.style.boxShadow = '0 0 30px var(--neon-cyan), 0 0 60px var(--neon-cyan)';
+        setTimeout(() => { btn.style.boxShadow = ''; }, 150);
+        setTimeout(() => { 
+            btn.style.boxShadow = '0 0 30px var(--neon-cyan), 0 0 60px var(--neon-cyan)';
+            setTimeout(() => { btn.style.boxShadow = ''; }, 150);
+        }, 300);
+    }
+    colorTapTime = now;
+});
     }
     colorTapTime = now;
 });
