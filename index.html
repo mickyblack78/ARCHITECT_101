@@ -263,32 +263,44 @@ canvas {
         updateBrushPreview();
     }
     
-    function toggleOverlay(id) {
-    const el = document.getElementById(`overlay-${id}`);
-    const btn = document.getElementById(`btn-${id}`);
-
-    // 1. TWO-BUTTON CHECK: Prevent "Crossed Wires"
-    // If we are trying to open MENU, check if COLOR or EDIT is already hot.
-    if (id === 'menu' && (appState.activeOverlay === 'color' || appState.isEditing)) return;
-    // If we are trying to open COLOR, check if MENU/TOOLS or EDIT is already hot.
-    if (id === 'color' && (appState.activeOverlay === 'menu' || appState.activeOverlay === 'tools' || appState.isEditing)) return;
-
-    // 2. KILL-SWITCH & STEP-BACK LOGIC
-    // This triggers if you tap the ALREADY active button (even if the name changed to "CUT")
-    if (appState.activeOverlay === id || (id === 'menu' && appState.activeOverlay === 'tools')) {
-        el.style.display = 'none';
-        
-        // Manual Cleanup: Ensure the tools grid shuts down with the menu
-        if (id === 'menu') {
-            document.getElementById('overlay-tools').style.display = 'none';
-            btn.innerText = 'MENU'; 
-            btn.classList.remove('active');
-            appState.activeOverlay = null;
         
     } else {
         el.style.display = 'flex';
         btn.classList.add('active');
+
+        // [2026-04-28 14:58] EXCLUSIVE_GATE_LOGIC
+function toggleOverlay(id) {
+    // If another gate is already open, slam this one shut immediately.
+    if (appState.activeOverlay && appState.activeOverlay !== id && appState.activeOverlay !== 'tools') return;
+    if (id === 'color' && appState.isEditing) return;
+    if (id === 'menu' && appState.isEditing) return;
+
+    const el = document.getElementById(`overlay-${id}`);
+    const btn = document.getElementById(`btn-${id}`);
+
+    if (appState.activeOverlay === id || (id === 'menu' && appState.activeOverlay === 'tools')) {
+        // Manual Exit Only
+        el.style.display = 'none';
+        if (id === 'menu') {
+            document.getElementById('overlay-tools').style.display = 'none';
+            btn.innerText = 'MENU';
+        }
+        btn.classList.remove('active');
+        appState.activeOverlay = null;
+      else {
+        // Open Gate
+        el.style.display = 'flex';
+        btn.classList.add('active');
         appState.activeOverlay = id;
+    }
+}
+
+function toggleEdit() {
+    // Gate Check
+    if (appState.activeOverlay) return; 
+    appState.isEditing = !appState.isEditing;
+    document.getElementById('btn-edit').classList.toggle('active', appState.isEditing);
+}      appState.activeOverlay = id;
     }
 }
     }
@@ -371,10 +383,18 @@ setupLoupe(document.getElementById('loupe2'), (val) => {
         document.querySelectorAll('.btn').forEach(b => b.classList.remove('locked'));
     }
 
-    // THE DOUBLE-KICK RELAY ENGINE
-    async function triggerQSave() {
-        if (appState.isRelaying) return;
-        appState.isRelaying = true;
+        // [2026-04-28 14:58] RESOLUTION_GUARD
+async function triggerQSave() {
+    if (appState.isRelaying) return;
+    appState.isRelaying = true;
+
+    // Use RAW pixel width/height to avoid the "Smudge"
+    mctx.setTransform(1, 0, 0, 1, 0, 0); // Reset scale for the stamp
+    mctx.drawImage(temp, 0, 0);
+    mctx.scale(appState.dpr, appState.dpr); // Restore scale for drawing
+    
+    // ... rest of your Relay/Burn logic ...
+}
 
         const qBtn = document.getElementById('btn-qsave');
         const qBox = document.getElementById('box-qsave');
