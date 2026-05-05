@@ -231,11 +231,10 @@ canvas {
         penHue: 180,
         h: 2000, 
         t: 2000, 
-        e: 2000, 
-        s: 20,
-        gear: 50,
-        gears: [1, 5, 10, 50, 100, 200, 500],
-        gearIdx: 3,
+        e: 20,
+        gears: [1, 5, 10, 50, 100, 200, 500,]   
+        gears: [1, 5, 10, 50, 100, 200, 500,]
+        gearsIdx: 3,
         bar1Mode: 'HUE',
         bar2Mode: 'ELECTRIC',
         ledger: [],
@@ -262,12 +261,12 @@ canvas {
         updateBrushPreview();
     }
     
-        
-    } else {
+      
         el.style.display = 'flex';
         btn.classList.add('active');
+    
 
-        // [2026-04-28 14:58] EXCLUSIVE_GATE_LOGIC
+     
 function toggleOverlay(id) {
     // If another gate is already open, slam this one shut immediately.
     if (appState.activeOverlay && appState.activeOverlay !== id && appState.activeOverlay !== 'tools') return;
@@ -286,13 +285,13 @@ function toggleOverlay(id) {
         }
         btn.classList.remove('active');
         appState.activeOverlay = null;
-      else {
-        // Open Gate
+      
+    {
         el.style.display = 'flex';
         btn.classList.add('active');
         appState.activeOverlay = id;
     }
-}
+
 
 function toggleEdit() {
     // Gate Check
@@ -301,8 +300,7 @@ function toggleEdit() {
     document.getElementById('btn-edit').classList.toggle('active', appState.isEditing);
 }      appState.activeOverlay = id;
     }
-}
-    }
+    
 
     
     function switchOverlay(from, to) {
@@ -427,7 +425,7 @@ async function triggerQSave() {
             appState.isRelaying = false;
             console.log("DOUBLE_KICK_COMPLETE");
         }, 1200);
-    }
+    
 
     function bootToPhone(data) {
         const link = document.createElement('a');
