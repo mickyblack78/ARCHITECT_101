@@ -453,4 +453,160 @@
         bootToPhone(main.toDataURL("image/png"), appState.loadedName);
 
         // UI Flash
-        const qBtn = document.getEle
+        const qBtn = document.getElementById('btn-qsave');
+        qBtn.classList.add('qsave-active');
+        setTimeout(() => qBtn.classList.remove('qsave-active'), 2000);
+    }
+
+    function triggerSave() {
+        bootToPhone(main.toDataURL("image/png"), appState.loadedName);
+        const menuBtn = document.getElementById('btn-menu');
+        menuBtn.classList.add('success');
+        setTimeout(() => menuBtn.classList.remove('success'), 2000);
+        setMode(null);
+    }
+
+   {
+        const link = document.createElement('a');
+        link.download = `${fileName}.png`;
+        link.href = data;
+        link.click();
+    }
+
+    // Vault Mini-Menu Logic
+    function vaultAction(idx, action) {
+        const data = appState.vaults[idx];
+        if (!data) return;
+
+        if (action === 'LOAD') {
+            const img = new Image();
+            img.onload = () => {
+                mctx.clearRect(0,0, main.width, main.height);
+                mctx.drawImage(img, 0, 0, main.width/appState.dpr, main.height/appState.dpr);
+                tctx.clearRect(0, 0, temp.width, temp.height);
+                pushUndo('load');
+                setMode(null);
+            };
+            img.src = data;
+        } else if (action === 'SAVEAS') {
+            bootToPhone(data, `Vault_${idx+1}`);
+        }
+    }
+
+    // Load to Main
+    document.getElementById('load-file').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        appState.loadedName = file.name.split('.')[0];
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const img = new Image();
+            img.onload = () => {
+                mctx.clearRect(0,0, main.width, main.height);
+                mctx.drawImage(img, 0, 0, main.width/appState.dpr, main.height/appState.dpr);
+                pushUndo('load');
+                setMode(null);
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+        e.target.value = ''; // Reset input
+    });
+
+    // Import to Temp
+    document.getElementById('import-file').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const img = new Image();
+            img.onload = () => {
+                const viewW = window.innerWidth / appState.scale;
+                const viewH = window.innerHeight / appState.scale;
+                const ratio = Math.min(viewW / img.width, viewH / img.height) * 0.8; 
+                const drawW = img.width * ratio;
+                const drawH = img.height * ratio;
+                const drawX = (-appState.panX / appState.scale) + (viewW/2 - drawW/2);
+                const drawY = (-appState.panY / appState.scale) + (viewH/2 - drawH/2);
+
+                tctx.drawImage(img, drawX, drawY, drawW, drawH);
+                pushUndo('import');
+                setMode(null);
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+        e.target.value = ''; // Reset input
+    });
+
+    // ==========================================
+    // 3-BAR COLOR LOGIC
+    // ==========================================
+    function setupSlider(el, type) {
+        let isDragging = false;
+        el.addEventListener('touchstart', (e) => { isDragging = true; e.stopPropagation(); });
+        
+        window.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            const rect = el.parentElement.getBoundingClientRect();
+            let percent = Math.max(0, Math.min(1, (e.touches[0].clientX - rect.left) / rect.width));
+            el.style.left = `${percent * 100}%`;
+            
+            if(type === 'spectrum') {
+                appState.hueVal = percent * 360; 
+            } else if (type === 'shade') {
+                appState.lightVal = percent * 100; 
+            } else if (type === 'size') {
+                appState.penSize = Math.max(1, percent * 100); 
+            }
+            updateMasterColor();
+        }, { passive: false });
+        window.addEventListener('touchend', () => isDragging = false);
+    }
+
+    function updateMasterColor() {
+        // Build HSL color. Shade bar adjusts lightness (0=Black, 50=Pure Hue, 100=White)
+        appState.penColor = `hsl(${appState.hueVal}, 100%, ${appState.lightVal}%)`;
+        
+        // Update middle bar gradient background so you visually see what shade you are picking
+        document.getElementById('bar2-bg').style.background = `linear-gradient(to right, #000, hsl(${appState.hueVal}, 100%, 50%), #fff)`;
+        
+        const bPrev = document.getElementById('brush-preview');
+        bPrev.style.backgroundColor = appState.penColor;
+        bPrev.style.width = bPrev.style.height = `${appState.penSize}px`;
+        
+        const cBtn = document.getElementById('btn-color');
+        cBtn.style.color = appState.penColor;
+        cBtn.style.Color = appState.penColor;
+    }
+
+    function addRecentColor(colorStr) {
+        if (appState.recentColors[0] === colorStr) return;
+        appState.recentColors = appState.recentColors.filter(c => c !== colorStr);
+        appState.recentColors.unshift(colorStr);
+        if(appState.recentColors.length > 10) appState.recentColors.pop();
+        
+        const box = document.getElementById('recent-colors-box');
+        box.innerHTML = '';
+        appState.recentColors.forEach(color => {
+            const div = document.createElement('div');
+            div.className = 'color-swatch';
+            div.style.background = color;
+            div.onclick = () => {
+                appState.penColor = color;
+                document.getElementById('btn-color').style.color = color;
+                document.getElementById('btn-color').style.borderColor = color;
+                setMode('edit'); // Selecting a recent color readies the pen
+            };
+            box.appendChild(div);
+        });
+    }
+
+    setupSlider(document.getElementById('loupe1'), 'spectrum');
+    setupSlider(document.getElementById('loupe2'), 'spectrum');
+    setupSlider(document.getElementById('loupe3'), 'size');
+
+    window.addEventListener('load', init);
+</script>
+</body>
+</html>
