@@ -1,612 +1,456 @@
-1: <!DOCTYPE html> 
-2: <html lang="en">
-3: <head>
-4:     <meta charset="UTF-8">
-5:     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-6:     <title>ARCHITECT_101</title>
-7:     <style>
-8:         :root {
-9:             --neon-cyan: #00ffff;
-10:             --electric-blue: #2e5bff;
-11:             --neon-glow: rgba(0, 255, 255, 0.4);
-12:             --success-green: #00ff00;
-13:             --bg: #000000;
-14:             --panel: rgba(10, 10, 10, 0.98);
-15:             --safe-zone: 60px;
-16:         }
-17: 
-18:         * {
-19:             margin: 0; padding: 0; box-sizing: border-box;
-20:             -webkit-touch-callout: none; -webkit-user-select: none;
-21:             user-select: none; touch-action: none;
-22:         }
-23: 
-24:         body { background: var(--bg); height: 100vh; width: 100vw; overflow: hidden; font-family: monospace; }
-25: 
-26:         /* VIEWPORT FOR PAN/ZOOM */
-27:         #viewport {
-28:             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-29:             transform-origin: 0 0; 
-30:             transition: transform 0.05s linear; 
-31:         }
-32: 
-33:         canvas { position: absolute; top: 0; left: 0; display: block; }
-34:         #main-canvas { z-index: 10; } /* Base Picture */
-35:         #temp-canvas { z-index: 20; } /* Edits / Strokes */
-36: 
-37:         .dock {
-38:             position: fixed; bottom: var(--safe-zone); left: 50%;
-39:             transform: translateX(-50%); z-index: 1000;
-40:             display: flex; gap: 15px; padding: 15px 25px;
-41:             background: var(--panel); border: 1px solid #333;
-42:             border-radius: 60px; box-shadow: 0 0 20px rgba(0,0,0,0.8);
-43:         }
-44: 
-45:         .btn {
-46:             width: 65px; height: 50px; border-radius: 25px;
-47:             border: 1px solid #333; background: #rainbow;
-48:             display: flex; align-items: center; justify-content: center;
-49:             color: #666; font-size: 11px; font-weight: 900; transition: 0.2s;
-50:             cursor: pointer; text-transform: uppercase;
-51:         }
-52: 
-53:         /* STRICT HIGHLIGHT STATES */
-54:         .btn.active { border-color: var(--neon-cyan); color: var(--neon-cyan); box-shadow: 0 0 35px var(--neon-glow); }
-55:         .btn.qsave-active { border-color: var(--electric-blue) !important; color: var(--electric-blue) !important; box-shadow: 0 0 25px var(--electric-blue) !important; }
-56:         .btn.success { border-color: var(--success-green) !important; color: var(--success-green) !important; box-shadow: 0 0 35px var(--success-green) !important; }
-57: 
-58:         .overlay {
-59:             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-60:             background: rgba(0,0,0,0.95); z-index: 2000; display: none;
-61:             flex-direction: column; align-items: center; justify-content: center;
-62:         }
-63: 
-64:         .grid-3x5 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; width: 90%; max-width: 400px; }
-65:         .grid-btn { aspect-ratio: 1; background: #111; border: 1px solid #333; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px; cursor: pointer; }
-66:         .grid-btn:active { background: var(--neon-cyan); color: var(--neon-cyan); }
-67: 
-68:         .menu-list { width: 80%; max-width: 300px; display: flex; flex-direction: column; gap: 10px; }
-69:         .menu-row { display: flex; gap: 10px; width: 100%; }
-70:         .menu-item { flex: 1; padding: 20px; background: #111; border: 1px solid #444; color: white; text-align: center; font-size: 12px; cursor: pointer; }
-71: 
-72:         .recent-colors { display: flex; gap: 5px; margin-top: 20px; width: 90%; max-width: 400px; overflow-x: auto; padding: 10px 0; border-top: 1px solid #333;}
-73:         .color-swatch { width: 30px; height: 30px; border-radius: 5px; border: 1px solid #fff; flex-shrink: 0; cursor: pointer;}
-74: 
-75:         /* VAULT LAYOUT */
-76:         .vault-scroll-wrap { display: flex; flex-direction: column; gap: 20px; align-items: center; width: 100%; max-height: 90vh; overflow-y: auto; padding-bottom: 20px; }
-77:         .vault-container { width: 90%; max-width: 300px; border: 1px solid #333; background: #050505; display: flex; flex-direction: column; }
-78:         .vault-box { width: 100%; height: 25vh; position: relative; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #333; background: #000; }
-79:         .vault-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
-80:         .vault-label { position: absolute; top: 5px; left: 5px; font-size: 10px; color: #888; font-weight: bold; }
-81:         .vault-action-bar { display: flex; width: 100%; height: 40px; }
-82:         .vault-action-bar div { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #fff; border-right: 1px solid #333; cursor: pointer; }
-83:         .vault-action-bar div:last-child { border-right: none; }
-84:         .vault-action-bar div:active { background: var(--neon-cyan); color: #000; }
-85: 
-86:         /* SLIDERS (Top to Bottom) */
-87:         .sliders-wrap { display: flex; flex-direction: column; gap: 30px; width: 90%; max-width: 400px; pointer-events: auto; }
-88:         .bar-container { position: relative; height: 30px; width: 100%; }
-89:         .bar-bg { position: absolute; top: 11px; width: 100%; height: 8px; border-radius: 4px; border: 1px solid #444; }
-90:         #bar3-bg { background: linear-gradient(to right, #000, gray, #fff); } /* SIZE */
-91:         #bar2-bg { background: linear-gradient(to right, #000, red, yellow, lime, cyan, blue, magenta, red, #fff); } /* SHADE */
-92:         #bar1-bg { background: linear-gradient(to right, red, yellow, lime, cyan, blue, magenta, red); } /* SPECTRUM */
-93:         .loupe { position: absolute; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; top: 5px; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; font-size: 0px; background: #888; cursor: pointer; box-shadow: 0 0 10px rgba(0,0,0,0.5);}
-94:     </style>
-95: </head>
-96: <body>
-97: 
-98: <!-- Hidden File Loaders -->
-99: <input type="file" id="load-file" accept="image/*" style="display: none;">
-100: <input type="file" id="import-file" accept="image/*" style="display: none;">
-101: 
-102: <!-- Canvas Container for Pan/Zoom -->
-103: <div id="viewport">
-104:     <canvas id="main-canvas"></canvas>
-105:     <canvas id="temp-canvas"></canvas>
-106: </div>
-107: 
-108: <!-- DOCK -->
-109: <div class="dock" id="main-dock">
-110:     <div class="btn" id="btn-menu" onclick="handleDockTap('menu')">MENU</div>
-111:     <div class="btn" id="btn-qsave" onclick="triggerQSave()">QSAVE</div>
-112:     <div class="btn" id="btn-color" onclick="handleDockTap('color')">COLOR</div>
-113:     <div class="btn" id="btn-edit" onclick="handleDockTap('edit')">EDIT</div>
-114: </div>
-115: 
-116: <!-- MENU OVERLAY -->
-117: <div class="overlay" id="overlay-menu">
-118:     <div class="menu-list">
-119:         <div class="menu-row">
-120:             <div class="menu-item" onclick="triggerSave()">SAVE</div>
-121:             <div class="menu-item" onclick="triggerSave()">SAVE AS</div>
-122:         </div>
-123:         <div class="menu-row">
-124:             <div class="menu-item" onclick="document.getElementById('load-file').click()">LOAD</div>
-125:             <div class="menu-item" onclick="document.getElementById('import-file').click()">IMPORT</div>
-126:         </div>
-127:         <div class="menu-item" style="background: var(--neon-cyan); color: #000;" onclick="switchOverlay('menu', 'tools')">TOOLS</div>
-128:         <div class="menu-item" onclick="switchOverlay('menu', 'vault')">VAULTS</div>
-129:     </div>
-130: </div>
-131: 
-132: <!-- TOOLS OVERLAY -->
-133: <div class="overlay" id="overlay-tools">
-134:     <div class="grid-3x5">
-135:         <div class="grid-btn" onclick="applyTool('PEN')">PEN</div>
-136:         <div class="grid-btn" onclick="applyTool('ERASER')">ERASER</div>
-137:         <div class="grid-btn" onclick="applyTool('UNDO')">UNDO</div>
-138:         <div class="grid-btn" onclick="applyTool('SMOOTH')">SMOOTH</div>
-139:         <div class="grid-btn" onclick="applyTool('TEXT')">TEXT</div>
-140:         <div class="grid-btn" onclick="applyTool('CUT')">CUT</div>
-141:         <div class="grid-btn" onclick="applyTool('COPY')">COPY</div>
-142:         <div class="grid-btn" onclick="applyTool('PASTE')">PASTE</div>
-143:         <div class="grid-btn" onclick="applyTool('FILL')">FILL</div>
-144:         <div class="grid-btn" onclick="applyTool('PICKER')">PICKER</div>
-145:         <div class="grid-btn" onclick="applyTool('PH...AI')">PH...AI</div>
-146:         <div class="grid-btn">PH_12</div>
-147:     </div>
-148:     <div class="recent-colors" id="recent-colors-box"></div>
-149: </div>
-150: 
-151: <!-- COLOR OVERLAY -->
-152: <div class="overlay" id="overlay-color" style="background: none; pointer-events: none;">
-153:     <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 40px; pointer-events: auto;">
-154:         <div id="brush-preview" style="width: 50px; height: 50px; border-radius: 50%; border: 2px solid #fff;"></div>
-155:     </div>
-156:     
-157:     <div class="sliders-wrap">
-158:         <!-- TOP: Size -->
-159:         <div class="bar-container" id="bar3-container">
-160:             <div style="font-size: 10px; color: #888; margin-bottom: 5px;">SIZE</div>
-161:             <div class="bar-bg" id="bar3-bg"></div>
-162:             <div class="loupe" id="loupe3"></div>
-163:         </div>
-164:         <!-- MIDDLE: Shade -->
-165:         <div class="bar-container" id="bar2-container">
-166:             <div style="font-size: 10px; color: #888; margin-bottom: 5px;">SHADE</div>
-167:             <div class="bar-bg" id="bar2-bg"></div>
-168:             <div class="loupe" id="loupe2"></div>
-169:         </div>
-170:         <!-- BOTTOM: Spectrum -->
-171:         <div class="bar-container" id="bar1-container">
-172:             <div style="font-size: 10px; color: #888; margin-bottom: 5px;">SPECTRUM</div>
-173:             <div class="bar-bg" id="bar1-bg"></div>
-174:             <div class="loupe" id="loupe1"></div>
-175:         </div>
-176:     </div>
-177: </div>
-178: 
-179: <!-- VAULT OVERLAY -->
-180: <div class="overlay" id="overlay-vault">
-181:     <div class="vault-scroll-wrap">
-182:         <!-- Vault 1 -->
-183:         <div class="vault-container">
-184:             <div class="vault-box">
-185:                 <span class="vault-label">VAULT 1</span>
-186:                 <img id="img-vault-0">
-187:             </div>
-188:             <div class="vault-action-bar">
-189:                 <div onclick="vaultAction(0, 'LOAD')">LOAD</div>
-190:                 <div onclick="vaultAction(0, 'SAVEAS')">SAVE AS</div>
-191:                 <div onclick="setMode(null)">EXIT</div>
-192:             </div>
-193:         </div>
-194:         <!-- Vault 2 -->
-195:         <div class="vault-container">
-196:             <div class="vault-box">
-197:                 <span class="vault-label">VAULT 2</span>
-198:                 <img id="img-vault-1">
-199:             </div>
-200:             <div class="vault-action-bar">
-201:                 <div onclick="vaultAction(1, 'LOAD')">LOAD</div>
-202:                 <div onclick="vaultAction(1, 'SAVEAS')">SAVE AS</div>
-203:                 <div onclick="setMode(null)">EXIT</div>
-204:             </div>
-205:         </div>
-206:     </div>
-207: </div>
-208: 
-209: <script>
-210:     const appState = {
-211:         activeMode: null, // 'menu', 'color', 'edit', or null
-212:         activeTool: '', 
-213:         loadedName: "",
-214:         penColor: '#00ffff',
-215:         penSize: 20,
-216:         hueVal: 180,    // 0-360
-217:         lightVal: 50,   // 0-100%
-218:         recentColors:[],
-219:         undoStack: [],  // Max 10 Full Snapshots
-220:         vaults: [null, null],
-221:         vaultIdx: 0,
-222:         dpr: window.devicePixelRatio || 1,
-223:         panX: 0, panY: 0, scale: 1
-224:     };
-225: 
-226:     const viewport = document.getElementById('viewport');
-227:     const main = document.getElementById('main-canvas');
-228:     const temp = document.getElementById('temp-canvas');
-229:     const mctx = main.getContext('2d');
-230:     const tctx = temp.getContext('2d');
-231: 
-232:     // Init App
-233:     function init() {
-234:         main.width = temp.width = window.innerWidth * appState.dpr;
-235:         main.height = temp.height = window.innerHeight * appState.dpr;
-236:         main.style.width = temp.style.width = window.innerWidth + 'px';
-237:         main.style.height = temp.style.height = window.innerHeight + 'px';
-238:         
-239:         mctx.scale(appState.dpr, appState.dpr);
-240:         tctx.scale(appState.dpr, appState.dpr);
-241:         mctx.lineCap = tctx.lineCap = 'round';
-242:         mctx.lineJoin = tctx.lineJoin = 'round';
-243:         
-244:         // Initial slider positions visually
-245:         document.getElementById('loupe1').style.left = '50%';
-246:         document.getElementById('loupe2').style.left = '50%';
-247:         document.getElementById('loupe3').style.left = '20%';
-248:         updateMasterColor();
-249:         pushUndo('init');
-250:     }
-251: 
-252:     // ==========================================
-253:     // RADIO BUTTON MASTER LOGIC
-254:     // ==========================================
-255:     function setMode(mode) {
-256:         // 1. Shut down all overlays and highlights
-257:         document.querySelectorAll('.overlay').forEach(el => el.style.display = 'none');
-258:         document.getElementById('btn-menu').classList.remove('active');
-259:         document.getElementById('btn-color').classList.remove('active');
-260:         document.getElementById('btn-edit').classList.remove('active');
-261: 
-262:         // If toggling the same mode off, we just stay null (pan/zoom allowed)
-263:         if (appState.activeMode === mode) {
-264:             appState.activeMode = null;
-265:             return;
-266:         }
-267: 
-268:         // 2. Activate the requested mode
-269:         appState.activeMode = mode;
-270: 
-271:         if (mode === 'menu') {
-272:             document.getElementById('btn-menu').classList.add('active');
-273:             document.getElementById('overlay-menu').style.display = 'flex';
-274:         } 
-275:         else if (mode === 'color') {
-276:             document.getElementById('btn-color').classList.add('active');
-277:             document.getElementById('overlay-color').style.display = 'flex';
-278:         } 
-279:         else if (mode === 'edit') {
-280:             document.getElementById('btn-edit').classList.add('active');
-281:         }
-282:     }
-283: 
-284:     // Called directly from the HTML dock buttons
-285:     function handleDockTap(targetMode) {
-286:         setMode(targetMode);
-287:     }
-288: 
-289:     function switchOverlay(from, to) {
-290:         document.getElementById(`overlay-${from}`).style.display = 'none';
-291:         document.getElementById(`overlay-${to}`).style.display = 'flex';
-292:     }
-293: 
-294:     // Tool Selection
-295:     function applyTool(toolName) {
-296:         if (toolName === 'UNDO') {
-297:             performUndo();
-298:             return;
-299:         }
-300:         
-301:         appState.activeTool = toolName;
-302:         document.getElementById('btn-menu').innerText = toolName;
-303:         
-304:         // When a tool is selected, automatically activate EDIT mode so you can draw immediately why the fuck would we consider something that dumb dropping a tool before we even f****** pick it up; 
-305:     }
-306: 
-307:     // ==========================================
-308:     // ZOOM & PAN (Active when mode === null)
-309:     // ==========================================
-310:     let isPanning = false;
-311:     let startX = 0, startY = 0, initialDist = 0;
-312: 
-313:     viewport.addEventListener('touchstart', (e) => {
-314:         if (appState.activeMode === 'edit') return; 
-315:         if (e.touches.length === 1) {
-316:             isPanning = true;
-317:             startX = e.touches[0].clientX - appState.panX;
-318:             startY = e.touches[0].clientY - appState.panY;
-319:         } else if (e.touches.length === 2) {
-320:             initialDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
-321:         }
-322:     });
-323: 
-324:     viewport.addEventListener('touchmove', (e) => {
-325:         if (appState.activeMode === 'edit') return;
-326:         e.preventDefault();
-327:         
-328:         if (e.touches.length === 1 && isPanning) {
-329:             appState.panX = e.touches[0].clientX - startX;
-330:             appState.panY = e.touches[0].clientY - startY;
-331:         } else if (e.touches.length === 2) {
-332:             const dist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
-333:             if(initialDist > 0) {
-334:                 const delta = (dist - initialDist) * 0.01;
-335:                 appState.scale = Math.min(Math.max(0.5, appState.scale + delta), 5);
-336:                 initialDist = dist;
-337:             }
-338:         }
-339:         updateViewport();
-340:     }, {passive: false});
-341: 
-342:     window.addEventListener('touchend', () => isPanning = false);
-343: 
-344:     function updateViewport() {
-345:         viewport.style.transform = `translate(${appState.panX}px, ${appState.panY}px) scale(${appState.scale})`;
-346:     }
-347: 
-348:     // ==========================================
-349:     // DRAWING (Active when mode === 'edit')
-350:     // ==========================================
-351:     let isDrawing = false;
-352:     let lastX = 0, lastY = 0;
-353: 
-354:     function getCoords(e) {
-355:     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-356:     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-357:     const x = (clientX - appState.panX) / appState.scale;
-358:     const y = (clientY - appState.panY) / appState.scale;
-359:     return { x, y };
-360: }
-361: 
-362:     viewport.addEventListener('touchstart', (e) => {
-363:         if (appState.activeMode !== 'edit') return;
-364:         if (appState.activeTool !== 'PEN' && appState.activeTool !== 'ERASER') return;
-365:         
-366:         isDrawing = true;
-367:         const {x, y} = getCoords(e);
-368:         lastX = x; lastY = y;
-369:     }, {passive: false});
-370: 
-371:     viewport.addEventListener('touchmove', (e) => {
-372:         if (!isDrawing) return;
-373:         e.preventDefault();
-374:         const {x, y} = getCoords(e);
-375: 
-376:         tctx.lineCap = 'round';
-377:         if (appState.activeTool === 'ERASER') {
-378:             tctx.globalCompositeOperation = 'destination-out';
-379:         } else {
-380:             tctx.globalCompositeOperation = 'source-over';
-381:             tctx.strokeStyle = appState.penColor;
-382:         }
-383:         
-384:         tctx.lineWidth = appState.penSize / appState.scale;
-385:         tctx.beginPath();
-386:         tctx.moveTo(lastX, lastY);
-387:         tctx.lineTo(x, y);
-388:         tctx.stroke();
-389:         
-390:         lastX = x; lastY = y;
-391:     }, {passive: false});
-392: 
-393:     window.addEventListener('touchend', () => {
-394:         if (isDrawing) {
-395:             isDrawing = false;
-396:             pushUndo('stroke');
-397:             addRecentColor(appState.penColor);
-398:         }
-399:     });
-400: 
-401:     // ==========================================
-402:     // TRUE UNDO (Records both Main and Temp) but a smart coder would just reflect upon vault.
-403:     // ==========================================
-404:     function pushUndo(type) {
-405:         if (appState.undoStack.length >= 10) appState.undoStack.shift();
-406:         appState.undoStack.push({
-407:             type: type,
-408:             tempData: temp.toDataURL(),
-409:             mainData: main.toDataURL() 
-410:         });
-411:     }
-412: 
-413:     function performUndo() {
-414:         if (appState.undoStack.length <= 1) { setMode(null); return; }
-415:         
-416:         appState.undoStack.pop(); // Remove current state
-417:         const prevState = appState.undoStack[appState.undoStack.length - 1]; // Look at previous
-418:         
-419:         // Restore Main Canvas perfectly
-420:         const mImg = new Image();
-421:         mImg.onload = () => {
-422:             mctx.clearRect(0,0, main.width, main.height);
-423:             mctx.drawImage(mImg, 0, 0, main.width/appState.dpr, main.height/appState.dpr);
-424:             
-425:             // Restore Temp Canvas perfectly
-426:             const tImg = new Image();
-427:             tImg.onload = () => {
-428:                 tctx.clearRect(0,0, temp.width, temp.height);
-429:                 tctx.drawImage(tImg, 0, 0, temp.width/appState.dpr, temp.height/appState.dpr);
-430:             };
-431:             tImg.src = prevState.tempData;
-432:         };
-433:         mImg.src = prevState.mainData;
-434: 
-435:         setMode(null); // Close menus after undo
-436:     }
-437: 
-438:     // ==========================================
-439:     // SAVE / QSAVE / LOAD / IMPORT / VAULTS
-440:     // ==========================================
-441:     function triggerQSave() {
-442:         mctx.drawImage(temp, 0, 0, main.width/appState.dpr, main.height/appState.dpr);
-443:         tctx.clearRect(0, 0, temp.width, temp.height);
-444:         
-445:         // Push combined state to history so it can be un-done
-446:         pushUndo('qsave');
-447:         
-448:         // Overwrite alternating vault
-449:         appState.vaults[appState.vaultIdx] = main.toDataURL();
-450:         document.getElementById(`img-vault-${appState.vaultIdx}`).src = appState.vaults[appState.vaultIdx];
-451:         appState.vaultIdx = (appState.vaultIdx + 1) % 2; 
-452:         
-453:         bootToPhone(main.toDataURL("image/png"), appState.loadedName);
-454: 
-455:         // UI Flash
-456:         const qBtn = document.getElementById('btn-qsave');
-457:         qBtn.classList.add('qsave-active');
-458:         setTimeout(() => qBtn.classList.remove('qsave-active'), 2000);
-459:     }
-460: 
-461:     function triggerSave() {
-462:         bootToPhone(main.toDataURL("image/png"), appState.loadedName);
-463:         const menuBtn = document.getElementById('btn-menu');
-464:         menuBtn.classList.add('success');
-465:         setTimeout(() => menuBtn.classList.remove('success'), 2000);
-466:         setMode(null);
-467:     }
-468: 
-469:     function bootToPhone(data, fileName) {
-470:         const link = document.createElement('a');
-471:         link.download = `${fileName}.png`;
-472:         link.href = data;
-473:         link.click();
-474:     }
-475: 
-476:     // Vault Mini-Menu Logic
-477:     function vaultAction(idx, action) {
-478:         const data = appState.vaults[idx];
-479:         if (!data) return;
-480: 
-481:         if (action === 'LOAD') {
-482:             const img = new Image();
-483:             img.onload = () => {
-484:                 mctx.clearRect(0,0, main.width, main.height);
-485:                 mctx.drawImage(img, 0, 0, main.width/appState.dpr, main.height/appState.dpr);
-486:                 tctx.clearRect(0, 0, temp.width, temp.height);
-487:                 pushUndo('load');
-488:                 setMode(null);
-489:             };
-490:             img.src = data;
-491:         } else if (action === 'SAVEAS') {
-492:             bootToPhone(data, `Vault_${idx+1}`);
-493:         }
-494:     }
-495: 
-496:     // Load to Main
-497:     document.getElementById('load-file').addEventListener('change', function(e) {
-498:         const file = e.target.files[0];
-499:         if (!file) return;
-500:         appState.loadedName = file.name.split('.')[0];
-501:         const reader = new FileReader();
-502:         reader.onload = function(event) {
-503:             const img = new Image();
-504:             img.onload = () => {
-505:                 mctx.clearRect(0,0, main.width, main.height);
-506:                 mctx.drawImage(img, 0, 0, main.width/appState.dpr, main.height/appState.dpr);
-507:                 pushUndo('load');
-508:                 setMode(null);
-509:             };
-510:             img.src = event.target.result;
-511:         };
-512:         reader.readAsDataURL(file);
-513:         e.target.value = ''; // Reset input
-514:     });
-515: 
-516:     // Import to Temp
-517:     document.getElementById('import-file').addEventListener('change', function(e) {
-518:         const file = e.target.files[0];
-519:         if (!file) return;
-520:         const reader = new FileReader();
-521:         reader.onload = function(event) {
-522:             const img = new Image();
-523:             img.onload = () => {
-524:                 const viewW = window.innerWidth / appState.scale;
-525:                 const viewH = window.innerHeight / appState.scale;
-526:                 const ratio = Math.min(viewW / img.width, viewH / img.height) * 0.8; 
-527:                 const drawW = img.width * ratio;
-528:                 const drawH = img.height * ratio;
-529:                 const drawX = (-appState.panX / appState.scale) + (viewW/2 - drawW/2);
-530:                 const drawY = (-appState.panY / appState.scale) + (viewH/2 - drawH/2);
-531: 
-532:                 tctx.drawImage(img, drawX, drawY, drawW, drawH);
-533:                 pushUndo('import');
-534:                 setMode(null);
-535:             };
-536:             img.src = event.target.result;
-537:         };
-538:         reader.readAsDataURL(file);
-539:         e.target.value = ''; // Reset input
-540:     });
-541: 
-542:     // ==========================================
-543:     // 3-BAR COLOR LOGIC
-544:     // ==========================================
-545:     function setupSlider(el, type) {
-546:         let isDragging = false;
-547:         el.addEventListener('touchstart', (e) => { isDragging = true; e.stopPropagation(); });
-548:         
-549:         window.addEventListener('touchmove', (e) => {
-550:             if (!isDragging) return;
-551:             const rect = el.parentElement.getBoundingClientRect();
-552:             let percent = Math.max(0, Math.min(1, (e.touches[0].clientX - rect.left) / rect.width));
-553:             el.style.left = `${percent * 100}%`;
-554:             
-555:             if(type === 'spectrum') {
-556:                 appState.hueVal = percent * 360; 
-557:             } else if (type === 'shade') {
-558:                 appState.lightVal = percent * 100; 
-559:             } else if (type === 'size') {
-560:                 appState.penSize = Math.max(1, percent * 100); 
-561:             }
-562:             updateMasterColor();
-563:         }, { passive: false });
-564:         window.addEventListener('touchend', () => isDragging = false);
-565:     }
-566: 
-567:     function updateMasterColor() {
-568:         // Build HSL color. Shade bar adjusts lightness (0=Black, 50=Pure Hue, 100=White)
-569:         appState.penColor = `hsl(${appState.hueVal}, 100%, ${appState.lightVal}%)`;
-570:         
-571:         // Update middle bar gradient background so you visually see what shade you are picking
-572:         document.getElementById('bar2-bg').style.background = `linear-gradient(to right, #000, hsl(${appState.hueVal}, 100%, 50%), #fff)`;
-573:         
-574:         const bPrev = document.getElementById('brush-preview');
-575:         bPrev.style.backgroundColor = appState.penColor;
-576:         bPrev.style.width = bPrev.style.height = `${appState.penSize}px`;
-577:         
-578:         const cBtn = document.getElementById('btn-color');
-579:         cBtn.style.color = appState.penColor;
-580:         cBtn.style.Color = appState.penColor;
-581:     }
-582: 
-583:     function addRecentColor(colorStr) {
-584:         if (appState.recentColors[0] === colorStr) return;
-585:         appState.recentColors = appState.recentColors.filter(c => c !== colorStr);
-586:         appState.recentColors.unshift(colorStr);
-587:         if(appState.recentColors.length > 10) appState.recentColors.pop();
-588:         
-589:         const box = document.getElementById('recent-colors-box');
-590:         box.innerHTML = '';
-591:         appState.recentColors.forEach(color => {
-592:             const div = document.createElement('div');
-593:             div.className = 'color-swatch';
-594:             div.style.background = color;
-595:             div.onclick = () => {
-596:                 appState.penColor = color;
-597:                 document.getElementById('btn-color').style.color = color;
-598:                 document.getElementById('btn-color').style.borderColor = color;
-599:                 setMode('edit'); // Selecting a recent color readies the pen
-600:             };
-601:             box.appendChild(div);
-602:         });
-603:     }
-604: 
-605:     setupSlider(document.getElementById('loupe1'), 'spectrum');
-606:     setupSlider(document.getElementById('loupe2'), 'spectrum');
-607:     setupSlider(document.getElementById('loupe3'), 'size');
-608: 
-609:     window.addEventListener('load', init);
-610: </script>
-611: </body>
-612: </html>
+<!DOCTYPE html> 
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>ARCHITECT_101</title>
+    <style>
+        :root {
+            --neon-cyan: #00ffff;
+            --electric-blue: #2e5bff;
+            --neon-glow: rgba(0, 255, 255, 0.4);
+            --success-green: #00ff00;
+            --bg: #000000;
+            --panel: rgba(10, 10, 10, 0.98);
+            --safe-zone: 60px;
+        }
+
+        * {
+            margin: 0; padding: 0; box-sizing: border-box;
+            -webkit-touch-callout: none; -webkit-user-select: none;
+            user-select: none; touch-action: none;
+        }
+
+        body { background: var(--bg); height: 100vh; width: 100vw; overflow: hidden; font-family: monospace; }
+
+        /* VIEWPORT FOR PAN/ZOOM */
+        #viewport {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            transform-origin: 0 0; 
+            transition: transform 0.05s linear; 
+        }
+
+        canvas { position: absolute; top: 0; left: 0; display: block; }
+        #main-canvas { z-index: 10; } /* Base Picture */
+        #temp-canvas { z-index: 20; } /* Edits / Strokes */
+
+        .dock {
+            position: fixed; bottom: var(--safe-zone); left: 50%;
+            transform: translateX(-50%); z-index: 1000;
+            display: flex; gap: 15px; padding: 15px 25px;
+            background: var(--panel); border: 1px solid #333;
+            border-radius: 60px; box-shadow: 0 0 20px rgba(0,0,0,0.8);
+        }
+
+        .btn {
+            width: 65px; height: 50px; border-radius: 25px;
+            border: 1px solid #333; background: #rainbow;
+            display: flex; align-items: center; justify-content: center;
+            color: #666; font-size: 11px; font-weight: 900; transition: 0.2s;
+            cursor: pointer; text-transform: uppercase;
+        }
+
+        /* STRICT HIGHLIGHT STATES */
+        .btn.active { border-color: var(--neon-cyan); color: var(--neon-cyan); box-shadow: 0 0 35px var(--neon-glow); }
+        .btn.qsave-active { border-color: var(--electric-blue) !important; color: var(--electric-blue) !important; box-shadow: 0 0 25px var(--electric-blue) !important; }
+        .btn.success { border-color: var(--success-green) !important; color: var(--success-green) !important; box-shadow: 0 0 35px var(--success-green) !important; }
+
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); z-index: 2000; display: none;
+            flex-direction: column; align-items: center; justify-content: center;
+        }
+
+        .grid-3x5 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; width: 90%; max-width: 400px; }
+        .grid-btn { aspect-ratio: 1; background: #111; border: 1px solid #333; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px; cursor: pointer; }
+        .grid-btn:active { background: var(--neon-cyan); color: var(--neon-cyan); }
+
+        .menu-list { width: 80%; max-width: 300px; display: flex; flex-direction: column; gap: 10px; }
+        .menu-row { display: flex; gap: 10px; width: 100%; }
+        .menu-item { flex: 1; padding: 20px; background: #111; border: 1px solid #444; color: white; text-align: center; font-size: 12px; cursor: pointer; }
+
+        .recent-colors { display: flex; gap: 5px; margin-top: 20px; width: 90%; max-width: 400px; overflow-x: auto; padding: 10px 0; border-top: 1px solid #333;}
+        .color-swatch { width: 30px; height: 30px; border-radius: 5px; border: 1px solid #fff; flex-shrink: 0; cursor: pointer;}
+
+        /* VAULT LAYOUT */
+        .vault-scroll-wrap { display: flex; flex-direction: column; gap: 20px; align-items: center; width: 100%; max-height: 90vh; overflow-y: auto; padding-bottom: 20px; }
+        .vault-container { width: 90%; max-width: 300px; border: 1px solid #333; background: #050505; display: flex; flex-direction: column; }
+        .vault-box { width: 100%; height: 25vh; position: relative; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #333; background: #000; }
+        .vault-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .vault-label { position: absolute; top: 5px; left: 5px; font-size: 10px; color: #888; font-weight: bold; }
+        .vault-action-bar { display: flex; width: 100%; height: 40px; }
+        .vault-action-bar div { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #fff; border-right: 1px solid #333; cursor: pointer; }
+        .vault-action-bar div:last-child { border-right: none; }
+        .vault-action-bar div:active { background: var(--neon-cyan); color: #000; }
+
+        /* SLIDERS (Top to Bottom) */
+        .sliders-wrap { display: flex; flex-direction: column; gap: 30px; width: 90%; max-width: 400px; pointer-events: auto; }
+        .bar-container { position: relative; height: 30px; width: 100%; }
+        .bar-bg { position: absolute; top: 11px; width: 100%; height: 8px; border-radius: 4px; border: 1px solid #444; }
+        #bar3-bg { background: linear-gradient(to right, #000, gray, #fff); } /* SIZE */
+        #bar2-bg { background: linear-gradient(to right, #000, red, yellow, lime, cyan, blue, magenta, red, #fff); } /* SHADE */
+        #bar1-bg { background: linear-gradient(to right, red, yellow, lime, cyan, blue, magenta, red); } /* SPECTRUM */
+        .loupe { position: absolute; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; top: 5px; transform: translateX(-50%); display: flex; align-items: center; justify-content: center; font-size: 0px; background: #888; cursor: pointer; box-shadow: 0 0 10px rgba(0,0,0,0.5);}
+    </style>
+</head>
+<body>
+
+<!-- Hidden File Loaders -->
+<input type="file" id="load-file" accept="image/*" style="display: none;">
+<input type="file" id="import-file" accept="image/*" style="display: none;">
+
+<!-- Canvas Container for Pan/Zoom -->
+<div id="viewport">
+    <canvas id="main-canvas"></canvas>
+    <canvas id="temp-canvas"></canvas>
+</div>
+
+<!-- DOCK -->
+<div class="dock" id="main-dock">
+    <div class="btn" id="btn-menu" onclick="handleDockTap('menu')">MENU</div>
+    <div class="btn" id="btn-qsave" onclick="triggerQSave()">QSAVE</div>
+    <div class="btn" id="btn-color" onclick="handleDockTap('color')">COLOR</div>
+    <div class="btn" id="btn-edit" onclick="handleDockTap('edit')">EDIT</div>
+</div>
+
+<!-- MENU OVERLAY -->
+<div class="overlay" id="overlay-menu">
+    <div class="menu-list">
+        <div class="menu-row">
+            <div class="menu-item" onclick="triggerSave()">SAVE</div>
+            <div class="menu-item" onclick="triggerSave()">SAVE AS</div>
+        </div>
+        <div class="menu-row">
+            <div class="menu-item" onclick="document.getElementById('load-file').click()">LOAD</div>
+            <div class="menu-item" onclick="document.getElementById('import-file').click()">IMPORT</div>
+        </div>
+        <div class="menu-item" style="background: var(--neon-cyan); color: #000;" onclick="switchOverlay('menu', 'tools')">TOOLS</div>
+        <div class="menu-item" onclick="switchOverlay('menu', 'vault')">VAULTS</div>
+    </div>
+</div>
+
+<!-- TOOLS OVERLAY -->
+<div class="overlay" id="overlay-tools">
+    <div class="grid-3x5">
+        <div class="grid-btn" onclick="applyTool('PEN')">PEN</div>
+        <div class="grid-btn" onclick="applyTool('ERASER')">ERASER</div>
+        <div class="grid-btn" onclick="applyTool('UNDO')">UNDO</div>
+        <div class="grid-btn" onclick="applyTool('SMOOTH')">SMOOTH</div>
+        <div class="grid-btn" onclick="applyTool('TEXT')">TEXT</div>
+        <div class="grid-btn" onclick="applyTool('CUT')">CUT</div>
+        <div class="grid-btn" onclick="applyTool('COPY')">COPY</div>
+        <div class="grid-btn" onclick="applyTool('PASTE')">PASTE</div>
+        <div class="grid-btn" onclick="applyTool('FILL')">FILL</div>
+        <div class="grid-btn" onclick="applyTool('PICKER')">PICKER</div>
+        <div class="grid-btn" onclick="applyTool('PH...AI')">PH...AI</div>
+        <div class="grid-btn">PH_12</div>
+    </div>
+    <div class="recent-colors" id="recent-colors-box"></div>
+</div>
+
+<!-- COLOR OVERLAY -->
+<div class="overlay" id="overlay-color" style="background: none; pointer-events: none;">
+    <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 40px; pointer-events: auto;">
+        <div id="brush-preview" style="width: 50px; height: 50px; border-radius: 50%; border: 2px solid #fff;"></div>
+    </div>
+    
+    <div class="sliders-wrap">
+        <!-- TOP: Size -->
+        <div class="bar-container" id="bar3-container">
+            <div style="font-size: 10px; color: #888; margin-bottom: 5px;">SIZE</div>
+            <div class="bar-bg" id="bar3-bg"></div>
+            <div class="loupe" id="loupe3"></div>
+        </div>
+        <!-- MIDDLE: Shade -->
+        <div class="bar-container" id="bar2-container">
+            <div style="font-size: 10px; color: #888; margin-bottom: 5px;">SHADE</div>
+            <div class="bar-bg" id="bar2-bg"></div>
+            <div class="loupe" id="loupe2"></div>
+        </div>
+        <!-- BOTTOM: Spectrum -->
+        <div class="bar-container" id="bar1-container">
+            <div style="font-size: 10px; color: #888; margin-bottom: 5px;">SPECTRUM</div>
+            <div class="bar-bg" id="bar1-bg"></div>
+            <div class="loupe" id="loupe1"></div>
+        </div>
+    </div>
+</div>
+
+<!-- VAULT OVERLAY -->
+<div class="overlay" id="overlay-vault">
+    <div class="vault-scroll-wrap">
+        <!-- Vault 1 -->
+        <div class="vault-container">
+            <div class="vault-box">
+                <span class="vault-label">VAULT 1</span>
+                <img id="img-vault-0">
+            </div>
+            <div class="vault-action-bar">
+                <div onclick="vaultAction(0, 'LOAD')">LOAD</div>
+                <div onclick="vaultAction(0, 'SAVEAS')">SAVE AS</div>
+                <div onclick="setMode(null)">EXIT</div>
+            </div>
+        </div>
+        <!-- Vault 2 -->
+        <div class="vault-container">
+            <div class="vault-box">
+                <span class="vault-label">VAULT 2</span>
+                <img id="img-vault-1">
+            </div>
+            <div class="vault-action-bar">
+                <div onclick="vaultAction(1, 'LOAD')">LOAD</div>
+                <div onclick="vaultAction(1, 'SAVEAS')">SAVE AS</div>
+                <div onclick="setMode(null)">EXIT</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const appState = {
+        activeMode: null, // 'menu', 'color', 'edit', or null
+        activeTool: '', 
+        loadedName: "",
+        penColor: '#00ffff',
+        penSize: 20,
+        hueVal: 180,    // 0-360
+        lightVal: 50,   // 0-100%
+        recentColors:[],
+        undoStack: [],  // Max 10 Full Snapshots
+        vaults: [null, null],
+        vaultIdx: 0,
+        dpr: window.devicePixelRatio || 1,
+        panX: 0, panY: 0, scale: 1
+    };
+
+    const viewport = document.getElementById('viewport');
+    const main = document.getElementById('main-canvas');
+    const temp = document.getElementById('temp-canvas');
+    const mctx = main.getContext('2d');
+    const tctx = temp.getContext('2d');
+
+    // Init App
+    function init() {
+        main.width = temp.width = window.innerWidth * appState.dpr;
+        main.height = temp.height = window.innerHeight * appState.dpr;
+        main.style.width = temp.style.width = window.innerWidth + 'px';
+        main.style.height = temp.style.height = window.innerHeight + 'px';
+        
+        mctx.scale(appState.dpr, appState.dpr);
+        tctx.scale(appState.dpr, appState.dpr);
+        mctx.lineCap = tctx.lineCap = 'round';
+        mctx.lineJoin = tctx.lineJoin = 'round';
+        
+        // Initial slider positions visually
+        document.getElementById('loupe1').style.left = '50%';
+        document.getElementById('loupe2').style.left = '50%';
+        document.getElementById('loupe3').style.left = '20%';
+        updateMasterColor();
+        pushUndo('init');
+    }
+
+    // ==========================================
+    // RADIO BUTTON MASTER LOGIC
+    // ==========================================
+    function setMode(mode) {
+        // 1. Shut down all overlays and highlights
+        document.querySelectorAll('.overlay').forEach(el => el.style.display = 'none');
+        document.getElementById('btn-menu').classList.remove('active');
+        document.getElementById('btn-color').classList.remove('active');
+        document.getElementById('btn-edit').classList.remove('active');
+
+        // If toggling the same mode off, we just stay null (pan/zoom allowed)
+        if (appState.activeMode === mode) {
+            appState.activeMode = null;
+            return;
+        }
+
+        // 2. Activate the requested mode
+        appState.activeMode = mode;
+
+        if (mode === 'menu') {
+            document.getElementById('btn-menu').classList.add('active');
+            document.getElementById('overlay-menu').style.display = 'flex';
+        } 
+        else if (mode === 'color') {
+            document.getElementById('btn-color').classList.add('active');
+            document.getElementById('overlay-color').style.display = 'flex';
+        } 
+        else if (mode === 'edit') {
+            document.getElementById('btn-edit').classList.add('active');
+        }
+    }
+
+    // Called directly from the HTML dock buttons
+    function handleDockTap(targetMode) {
+        setMode(targetMode);
+    }
+
+    function switchOverlay(from, to) {
+        document.getElementById(`overlay-${from}`).style.display = 'none';
+        document.getElementById(`overlay-${to}`).style.display = 'flex';
+    }
+
+    // Tool Selection
+    function applyTool(toolName) {
+        if (toolName === 'UNDO') {
+            performUndo();
+            return;
+        }
+        
+        appState.activeTool = toolName;
+        document.getElementById('btn-menu').innerText = toolName;
+        
+        // When a tool is selected, automatically activate EDIT mode so you can draw immediately why the fuck would we consider something that dumb dropping a tool before we even f****** pick it up; 
+    }
+
+    // ==========================================
+    // ZOOM & PAN (Active when mode === null)
+    // ==========================================
+    let isPanning = false;
+    let startX = 0, startY = 0, initialDist = 0;
+
+    viewport.addEventListener('touchstart', (e) => {
+        if (appState.activeMode === 'edit') return; 
+        if (e.touches.length === 1) {
+            isPanning = true;
+            startX = e.touches[0].clientX - appState.panX;
+            startY = e.touches[0].clientY - appState.panY;
+        } else if (e.touches.length === 2) {
+            initialDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+        }
+    });
+
+    viewport.addEventListener('touchmove', (e) => {
+        if (appState.activeMode === 'edit') return;
+        e.preventDefault();
+        
+        if (e.touches.length === 1 && isPanning) {
+            appState.panX = e.touches[0].clientX - startX;
+            appState.panY = e.touches[0].clientY - startY;
+        } else if (e.touches.length === 2) {
+            const dist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+            if(initialDist > 0) {
+                const delta = (dist - initialDist) * 0.01;
+                appState.scale = Math.min(Math.max(0.5, appState.scale + delta), 5);
+                initialDist = dist;
+            }
+        }
+        updateViewport();
+    }, {passive: false});
+
+    window.addEventListener('touchend', () => isPanning = false);
+
+    function updateViewport() {
+        viewport.style.transform = `translate(${appState.panX}px, ${appState.panY}px) scale(${appState.scale})`;
+    }
+
+    // ==========================================
+    // DRAWING (Active when mode === 'edit')
+    // ==========================================
+    let isDrawing = false;
+    let lastX = 0, lastY = 0;
+
+    function getCoords(e) {
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const x = (clientX - appState.panX) / appState.scale;
+    const y = (clientY - appState.panY) / appState.scale;
+    return { x, y };
+}
+
+    viewport.addEventListener('touchstart', (e) => {
+        if (appState.activeMode !== 'edit') return;
+        if (appState.activeTool !== 'PEN' && appState.activeTool !== 'ERASER') return;
+        
+        isDrawing = true;
+        const {x, y} = getCoords(e);
+        lastX = x; lastY = y;
+    }, {passive: false});
+
+    viewport.addEventListener('touchmove', (e) => {
+        if (!isDrawing) return;
+        e.preventDefault();
+        const {x, y} = getCoords(e);
+
+        tctx.lineCap = 'round';
+        if (appState.activeTool === 'ERASER') {
+            tctx.globalCompositeOperation = 'destination-out';
+        } else {
+            tctx.globalCompositeOperation = 'source-over';
+            tctx.strokeStyle = appState.penColor;
+        }
+        
+        tctx.lineWidth = appState.penSize / appState.scale;
+        tctx.beginPath();
+        tctx.moveTo(lastX, lastY);
+        tctx.lineTo(x, y);
+        tctx.stroke();
+        
+        lastX = x; lastY = y;
+    }, {passive: false});
+
+    window.addEventListener('touchend', () => {
+        if (isDrawing) {
+            isDrawing = false;
+            pushUndo('stroke');
+            addRecentColor(appState.penColor);
+        }
+    });
+
+    // ==========================================
+    // TRUE UNDO (Records both Main and Temp) but a smart coder would just reflect upon vault.
+    // ==========================================
+    function pushUndo(type) {
+        if (appState.undoStack.length >= 10) appState.undoStack.shift();
+        appState.undoStack.push({
+            type: type,
+            tempData: temp.toDataURL(),
+            mainData: main.toDataURL() 
+        });
+    }
+
+    function performUndo() {
+        if (appState.undoStack.length <= 1) { setMode(null); return; }
+        
+        appState.undoStack.pop(); // Remove current state
+        const prevState = appState.undoStack[appState.undoStack.length - 1]; // Look at previous
+        
+        // Restore Main Canvas perfectly
+        const mImg = new Image();
+        mImg.onload = () => {
+            mctx.clearRect(0,0, main.width, main.height);
+            mctx.drawImage(mImg, 0, 0, main.width/appState.dpr, main.height/appState.dpr);
+            
+            // Restore Temp Canvas perfectly
+            const tImg = new Image();
+            tImg.onload = () => {
+                tctx.clearRect(0,0, temp.width, temp.height);
+                tctx.drawImage(tImg, 0, 0, temp.width/appState.dpr, temp.height/appState.dpr);
+            };
+            tImg.src = prevState.tempData;
+        };
+        mImg.src = prevState.mainData;
+
+        setMode(null); // Close menus after undo
+    }
+
+    // ==========================================
+    // SAVE / QSAVE / LOAD / IMPORT / VAULTS
+    // ==========================================
+    function triggerQSave() {
+        mctx.drawImage(temp, 0, 0, main.width/appState.dpr, main.height/appState.dpr);
+        tctx.clearRect(0, 0, temp.width, temp.height);
+        
+        // Push combined state to history so it can be un-done
+        pushUndo('qsave');
+        
+        // Overwrite alternating vault
+        appState.vaults[appState.vaultIdx] = main.toDataURL();
+        document.getElementById(`img-vault-${appState.vaultIdx}`).src = appState.vaults[appState.vaultIdx];
+        appState.vaultIdx = (appState.vaultIdx + 1) % 2; 
+        
+        bootToPhone(main.toDataURL("image/png"), appState.loadedName);
+
+        // UI Flash
+        const qBtn = document.getEle
